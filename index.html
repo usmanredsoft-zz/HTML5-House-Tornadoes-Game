@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Phaser - Making your first game, part 2</title>
+    <script type="text/javascript" src="js/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update});
+
+    var homeBg, fox, button, homeTitle, homeText;
+
+    var player;
+    var house;
+    var enemies;
+    var enemiesTotal = 0;
+    var enemiesAlive = 0;
+    var tween;
+    var indicator;
+    var textStyle_Key, textStyle_Value, scoreTextValue, livesTextValue;
+
+    var lives = 3;
+    var score = 0;
+    var gameHasStarted = false;
+    var endGame = false;
+    var timer;
+
+    // Tornado model
+    Tornado = function (game) {
+        var x, y;
+        var position = Math.floor(Math.random() * 10) + 1;
+
+        if(position < 5) {
+            x = -(Math.random() * 800);
+            y = game.world.randomY;
+        } else {
+            x = 800 + (Math.random() * 800);
+            y = game.world.randomY;
+        }
+
+
+        this.game = game;
+        this.alive = true;
+
+        this.tornado = game.add.sprite(x, y, 'enemy');
+        this.tornado.scale.setTo(0.8, 0.8);
+        game.physics.enable(this.tornado, Phaser.Physics.ARCADE);
+        this.tornado.body.collideWorldBounds = true;
+        this.tornado.body.bounce.setTo(1, 1);
+
+        this.tornado.angle = game.rnd.angle();
+
+        game.physics.arcade.velocityFromRotation(this.tornado.rotation, 90, this.tornado.body.velocity);
+    };
+
+    // Tornado update method
+    Tornado.prototype.update = function() {
+        if(endGame == false) {
+            this.tornado.angle += 0.6;
+        } else {
+            this.tornado.kill();
+        }
+    };
+
+    function preload() {
+        game.load.image('ground', 'assets/background.jpg');
+        game.load.image('home-bg', 'assets/home-bg.png');
+        game.load.image('fox', 'assets/fox.png');
+        game.load.image('start-btn', 'assets/button.png');
+        game.load.image('restart-btn', 'assets/button.png');
+
+        game.load.image('house', 'assets/house.png');
+        game.load.image('player', 'assets/elipse.png');
+        game.load.image('enemy', 'assets/tornado.png');
+        game.load.image('indicator', 'assets/indicator.png');
+    }
+
+    function create() {
+        // Enable physics
+        game.physics.startSystem(Phaser.Physics.ARCADE);
+
+        // Create world
+        game.world.setBounds(0, 0, 800, 600);
+        homeBg = game.add.sprite(0, 0, 'home-bg');
+        addHomeScreen();
+    }
+
+    function addHomeScreen() {
+        fox = game.add.image(game.world.centerX,  150, 'fox').anchor.setTo(0.5);
+        var homeTitleStyle = { font: "26px Arial", fill: "#fdfcff", align: "center" };
+        var homeTextStyle = { font: "16px Arial", fill: "#fdfcff", align: "center", wordWrap: true, wordWrapWidth: 600 };
+        homeTitle = game.add.text(game.world.centerX, 300, "Zachráň dom pred tornádom", homeTitleStyle).anchor.setTo(0.5);
+        homeText = game.add.text(game.world.centerX, 350, "Lorem ipsum dolor sit amet, felis risus. Dapibus justo sagittis nulla ullamcorper risus, dui dapibus ac turpis est velit. Nulla augue ut sed facilisis eget scelerisque.", homeTextStyle).anchor.setTo(0.5);
+        button = game.add.button(game.world.centerX - 95, 440, 'start-btn', startGame, this, 2, 1, 0);
+    }
+
+    function startGame() {
+        gameHasStarted = true;
+        endGame = false;
+        button.input.stop();
+
+        score = 0;
+        lives = 3;
+        game.add.sprite(0, 0, 'ground');
+        player = game.add.sprite(game.world.centerX + 50, game.world.centerY + 50, 'player');
+        house = game.add.tileSprite(game.world.centerX, game.world.centerY, 150, 150, 'house');
+        house.anchor.setTo(0.5);
+
+        game.physics.enable([player, house], Phaser.Physics.ARCADE);
+
+        // Player setup
+        player.body.collideWorldBounds = true;
+        player.body.bounce.set(1);
+        game.input.onDown.add(moveSprite, this);
+
+        // Add house to the center of the map
+        house.body.collideWorldBounds = true;
+        house.body.immovable = true;
+
+        var rand = Math.floor(Math.random() * 900) + 500;
+        timer = game.time.events.loop(rand, generateTornado, this);
+
+        enemies = [];
+        enemiesTotal = 5;
+        enemiesAlive = 5;
+        for (var i = 0; i < enemiesTotal; i++) {
+            enemies.push(new Tornado(game));
+        }
+
+        // Add Text to top of game.
+        textStyle_Key = { font: "bold 20px Arial", fill: "#fdfcff", align: "left" };
+        textStyle_Value = { font: "bold 20px Arial", fill: "#272731", align: "left" };
+
+        game.add.text(10, 5, "SKÓRE: ", textStyle_Key);
+        scoreTextValue = game.add.text(95, 5, score.toString(), textStyle_Value);
+
+        game.add.text(game.width - 105, 5, "ZIVOTY: ", textStyle_Key);
+        livesTextValue = game.add.text(game.width - 20, 5, lives.toString(), textStyle_Value);
+    }
+
+    function showEndScore() {
+        homeBg = game.add.sprite(0, 0, 'home-bg');
+        var homeTitleStyle = { font: "bold 40px Arial", fill: "#fdfcff", align: "center" };
+        var homeTextStyle = { font: "bold 35px Arial", fill: "#fdfcff", align: "center" };
+        homeTitle = game.add.text(game.world.centerX, game.world.centerY - 50, "KONIEC HRY", homeTitleStyle).anchor.setTo(0.5);
+        homeText = game.add.text(game.world.centerX, game.world.centerY, "SKÓRE: " + score.toString(), homeTextStyle).anchor.setTo(0.5);
+        button = game.add.button(game.world.centerX - 95, 440, 'restart-btn', startGame, this, 2, 1, 0);
+    }
+
+    function update() {
+
+        if(gameHasStarted) {
+            for (var i = 0; i < enemies.length; i++) {
+                if (enemies[i].alive) {
+                    if(endGame == false) {
+                        enemiesAlive += 1;
+                        game.physics.arcade.collide(enemies[i].tornado, house, houseTouched, null, this);
+                        game.physics.arcade.overlap(enemies[i].tornado, player, playerTouched, null, this);
+                    }
+                    enemies[i].update();
+                }
+            }
+        }
+    }
+
+    function moveSprite (pointer) {
+        if(indicator) {
+            indicator.kill();
+        }
+
+        if (tween && tween.isRunning) {
+            tween.stop();
+        }
+
+        player.rotation = game.physics.arcade.angleToPointer(player, pointer);
+        var duration = (game.physics.arcade.distanceToPointer(player, pointer) / 400) * 1000;
+        indicator = game.add.image(pointer.x,  pointer.y, 'indicator');
+        tween = game.add.tween(player.body).to({ x: pointer.x, y: pointer.y }, duration, Phaser.Easing.Linear.None, true);
+        tween.onComplete.add(moveComplete, this);
+    }
+
+    function moveComplete() {
+        if(indicator) {
+            indicator.kill();
+        }
+    }
+
+    function houseTouched(tornado) {
+        lives -= 1;
+        livesTextValue.setText(lives.toString());
+        player.alpha = 0;
+        house.alpha = 0;
+        game.time.events.add(150, restorePlayer, this);
+
+        if(lives == 0) {
+            endGame = true;
+            house.kill();
+            player.kill();
+            button.input.stop();
+            game.time.events.remove(timer);
+            showEndScore();
+        }
+    }
+    
+    function restorePlayer() {
+        player.alpha = 1
+        house.alpha = 1;
+    }
+
+    function playerTouched(tornado) {
+        tornado.kill();
+        score += 5;
+        scoreTextValue.setText(score.toString());
+    }
+
+    function generateTornado() {
+        if(endGame == false) {
+            enemies.push(new Tornado(game));
+            enemiesAlive += 1;
+            enemiesTotal += 1;
+        }
+    }
+
+</script>
+
+</body>
+</html>
